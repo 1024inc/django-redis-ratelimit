@@ -42,7 +42,8 @@ def is_rate_limited(request, rate=None):
             return True
 
     r.incr(redis_key)
-    if r.ttl(redis_key) is None:
+    ttl = r.ttl(redis_key)
+    if ttl == None or ttl == -1:
         r.expire(redis_key, seconds)
 
     return False
