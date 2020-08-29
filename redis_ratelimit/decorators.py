@@ -35,18 +35,12 @@ def is_rate_limited(request, rate=None):
     redis_key = build_redis_key(request, count, seconds)
     r = redis_connection()
 
-    current = r.get(redis_key)
-    if current:
-        current = int(current.decode('utf-8'))
-        if current >= count:
-            return True
-
-    r.incr(redis_key)
+    current = r.incr(redis_key)
     ttl = r.ttl(redis_key)
     if ttl == None or ttl == -1:
         r.expire(redis_key, seconds)
 
-    return False
+    return current > count
 
 
 def ratelimit(rate=None):

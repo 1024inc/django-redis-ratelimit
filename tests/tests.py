@@ -2,14 +2,28 @@ from django.conf.urls import url
 from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 from django.views import View
+from unittest.mock import MagicMock, patch
 
 from redis_ratelimit import ratelimit
 from redis_ratelimit.exceptions import RateLimited
 from redis_ratelimit.utils import parse_rate
-from redis_ratelimit.decorators import ignore_redis_errors
+from redis_ratelimit.decorators import (
+    ignore_redis_errors,
+    is_rate_limited,
+    redis_connection,
+)
 from redis.exceptions import TimeoutError
 
 factory = RequestFactory()
+
+
+def make_request(view):
+    class DynamicUrlPattern:
+        urlpatterns = [url(r'', view)]
+
+    with override_settings(ROOT_URLCONF=DynamicUrlPattern):
+        req = factory.get('/')
+        view(req)
 
 
 class RateParsingTests(TestCase):
@@ -37,23 +51,47 @@ class DecoratorTests(TestCase):
         assert view(req)
 
 
+class RedisTests(TestCase):
+    def setUp(self):
+        self.redis = redis_connection()
+
+    def test_existing_key_gets_expiry(self):
+        key = 'REDIS_RATELIMIT/127.0.0.1/tests.tests.view/500/60'
+        self.redis.delete(key)
+        self.redis.set(key, 20)
+
+        @ratelimit(rate='500/m')
+        def view(request):
+            return True
+
+        make_request(view)
+
+        self.assertEqual(self.redis.ttl(key), 60)
+
+    def test_new_key_gets_expiry(self):
+        key = 'REDIS_RATELIMIT/127.0.0.1/tests.tests.view/500/60'
+        self.redis.delete(key)
+
+        @ratelimit(rate='500/m')
+        def view(request):
+            return True
+
+        make_request(view)
+
+        self.assertEqual(self.redis.ttl(key), 60)
+
+
 class RateLimitTests(TestCase):
     def test_method_decorator(self):
         @ratelimit(rate='5/s')
         def view(request):
             return True
 
-        class DynamicUrlPattern:
-            urlpatterns = [url(r'', view)]
+        for _ in range(5):
+            make_request(view)
 
-        with override_settings(ROOT_URLCONF=DynamicUrlPattern):
-            for _ in range(5):
-                req = factory.get('/')
-                view(req)
-
-            with self.assertRaises(RateLimited):
-                req = factory.get('/')
-                view(req)
+        with self.assertRaises(RateLimited):
+            make_request(view)
 
     def test_cbv_decorator(self):
         class Cbv(View):
