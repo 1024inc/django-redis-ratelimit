@@ -30,6 +30,6 @@ setup(
     ],
     keywords='django redis rate-limit ratelimit',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    install_requires=['Django==3.0.7', 'redis'],
+    install_requires=['Django', 'redis'],
     extras_require={"dev": ["black==19.3b0", "ipdb==0.12.2"]},
 )
