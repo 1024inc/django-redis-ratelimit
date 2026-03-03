@@ -1,3 +1,8 @@
+# DEPRECATED !!!!
+
+Functionality of this repository was replaced by [limits](https://pypi.org/project/limits/)
+in this [commit](https://github.com/1024inc/beyondpricing/commit/6d846fa00036933d13543480f0fa8ce22952c198).
+
 # django-redis-ratelimit
 
 Forked version of https://github.com/romantomjak/django-redis-ratelimit with
